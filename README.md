@@ -6,6 +6,8 @@
 
 **FocusFlow** 是一款专为开发者、创作者与深度学习者打造的**单页沉浸式生产力工作台**。它结合了番茄工作法（Pomodoro）、基于浏览器原生 **Web Audio API 实时物理合成的白噪音混音台**、极简待办任务看板以及**仿 GitHub 绿格子风格的专注贡献热力图**。
 
+🌐 **在线体验地址 (GitHub Pages)**：**[https://weibyin.github.io/focusflow/](https://weibyin.github.io/focusflow/)**
+
 > 💡 **零外部音频文件依赖、零构建配置**：所有雨声、壁炉篝火、深海潮汐与 Alpha 专注双耳节拍均通过数学滤波算法在浏览器内实时生成，克隆即用，完美支持 **GitHub Pages** 一键部署。
 
 ---
@@ -39,7 +41,7 @@
 
 ### 方式二：本地启动静态服务器
 ```bash
-git clone https://github.com/<你的用户名>/focusflow.git
+git clone https://github.com/WeibYin/focusflow.git
 cd focusflow
 # 使用 Python 内置服务器预览
 python -m http.server 8080
