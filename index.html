@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="emerald">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FocusFlow — 沉浸式白噪音番茄钟 & 极简任务工作台</title>
+  <meta name="description" content="基于 Web Audio API 实时白噪音合成、番茄专注时钟、任务看板与仿 GitHub 专注热力图的极简开发者生产力工作台。" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- 背景动态粒子画布 -->
+  <canvas id="bg-canvas" aria-hidden="true"></canvas>
+
+  <div class="app-shell">
+    <!-- 顶部导航栏 -->
+    <header class="topbar glass-panel">
+      <div class="brand">
+        <div class="brand-logo" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            <circle cx="12" cy="12" r="4"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">FocusFlow</h1>
+          <p class="brand-subtitle">Immersive Developer Workspace</p>
+        </div>
+      </div>
+
+      <div class="topbar-stats">
+        <div class="stat-pill" title="今日已完成番茄数">
+          <span class="stat-icon">🍅</span>
+          <span class="stat-label">今日番茄</span>
+          <strong id="stat-today-pomos">0</strong>
+        </div>
+        <div class="stat-pill" title="今日累计专注分钟">
+          <span class="stat-icon">⚡</span>
+          <span class="stat-label">今日专注</span>
+          <strong id="stat-today-mins">0m</strong>
+        </div>
+        <div class="stat-pill" title="连续专注天数">
+          <span class="stat-icon">🔥</span>
+          <span class="stat-label">连续打卡</span>
+          <strong id="stat-streak">0 天</strong>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <div class="theme-switcher" role="group" aria-label="主题配色">
+          <button class="theme-dot active" data-theme-val="emerald" title="极客翠绿 (GitHub Emerald)" style="--dot-color: #10b981;"></button>
+          <button class="theme-dot" data-theme-val="indigo" title="深空星蓝 (Cyber Indigo)" style="--dot-color: #6366f1;"></button>
+          <button class="theme-dot" data-theme-val="amber" title="温暖篝火 (Sunset Amber)" style="--dot-color: #f59e0b;"></button>
+          <button class="theme-dot" data-theme-val="rose" title="霓虹玫红 (Neon Rose)" style="--dot-color: #f43f5e;"></button>
+        </div>
+        <button id="btn-settings" class="icon-btn" title="计时器设置">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- 主体双栏网格 -->
+    <main class="dashboard-grid">
+      <!-- 左侧：番茄钟 + Web Audio 白噪音合成台 -->
+      <section class="left-column">
+        <!-- 番茄钟核心卡片 -->
+        <div class="card glass-panel timer-card">
+          <div class="mode-tabs" role="tablist">
+            <button class="mode-tab active" data-mode="focus" role="tab">专注模式</button>
+            <button class="mode-tab" data-mode="shortBreak" role="tab">短休息</button>
+            <button class="mode-tab" data-mode="longBreak" role="tab">长休息</button>
+          </div>
+
+          <div class="timer-ring-wrapper">
+            <svg class="timer-svg" viewBox="0 0 260 260">
+              <circle class="timer-track" cx="130" cy="130" r="114" />
+              <circle id="timer-progress" class="timer-progress" cx="130" cy="130" r="114" />
+            </svg>
+            <div class="timer-Readout">
+              <span id="timer-status-badge" class="status-badge">READY TO FOCUS</span>
+              <div id="timer-display" class="timer-digits">25:00</div>
+              <div id="current-task-banner" class="current-task-banner">
+                <span class="pulse-dot"></span>
+                <span id="active-task-title">点击右侧任务设为当前专注目标</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="timer-controls">
+            <button id="btn-reset" class="control-btn secondary" title="重置计时 (R)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+              </svg>
+            </button>
+            <button id="btn-toggle" class="control-btn primary">
+              <span id="btn-toggle-text">开始专注</span>
+              <kbd class="shortcut-hint">Space</kbd>
+            </button>
+            <button id="btn-skip" class="control-btn secondary" title="完成当前阶段并结算">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                <line x1="19" y1="5" x2="19" y2="19"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Web Audio 实时白噪音混音台 -->
+        <div class="card glass-panel mixer-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">🎧 环境白噪音合成器</h2>
+              <p class="card-subtitle">纯 Web Audio API 实时物理算法生成，零外部音频依赖</p>
+            </div>
+            <div class="mixer-presets">
+              <button class="preset-chip" data-preset="coding">💻 深度编码</button>
+              <button class="preset-chip" data-preset="reading">🌧️ 雨夜阅读</button>
+              <button class="preset-chip" data-preset="mute">🔇 全部静音</button>
+            </div>
+          </div>
+
+          <div class="sound-grid">
+            <!-- 雨声 -->
+            <div class="sound-channel" data-sound="rain">
+              <div class="sound-top">
+                <button class="sound-toggle" data-sound="rain">
+                  <span class="sound-emoji">🌧️</span>
+                  <div class="sound-meta">
+                    <span class="sound-name">窗外夜雨</span>
+                    <span class="sound-desc">粉红噪波滤波</span>
+                  </div>
+                </button>
+                <span class="sound-vol-label" id="vol-label-rain">45%</span>
+              </div>
+              <input type="range" class="sound-slider" data-sound="rain" min="0" max="100" value="45" aria-label="窗外夜雨音量" />
+            </div>
+
+            <!-- 篝火 -->
+            <div class="sound-channel" data-sound="fire">
+              <div class="sound-top">
+                <button class="sound-toggle" data-sound="fire">
+                  <span class="sound-emoji">🔥</span>
+                  <div class="sound-meta">
+                    <span class="sound-name">壁炉篝火</span>
+                    <span class="sound-desc">暖低频 + 柴火噼啪</span>
+                  </div>
+                </button>
+                <span class="sound-vol-label" id="vol-label-fire">35%</span>
+              </div>
+              <input type="range" class="sound-slider" data-sound="fire" min="0" max="100" value="35" aria-label="壁炉篝火音量" />
+            </div>
+
+            <!-- 海浪 -->
+            <div class="sound-channel" data-sound="waves">
+              <div class="sound-top">
+                <button class="sound-toggle" data-sound="waves">
+                  <span class="sound-emoji">🌊</span>
+                  <div class="sound-meta">
+                    <span class="sound-name">深海潮汐</span>
+                    <span class="sound-desc">LFO 呼吸节律调频</span>
+                  </div>
+                </button>
+                <span class="sound-vol-label" id="vol-label-waves">30%</span>
+              </div>
+              <input type="range" class="sound-slider" data-sound="waves" min="0" max="100" value="30" aria-label="深海潮汐音量" />
+            </div>
+
+            <!-- 双耳节拍 Alpha 脑波 -->
+            <div class="sound-channel" data-sound="binaural">
+              <div class="sound-top">
+                <button class="sound-toggle" data-sound="binaural">
+                  <span class="sound-emoji">🧠</span>
+                  <div class="sound-meta">
+                    <span class="sound-name">Alpha 专注脑波</span>
+                    <span class="sound-desc">432Hz + 10Hz 双耳差频</span>
+                  </div>
+                </button>
+                <span class="sound-vol-label" id="vol-label-binaural">20%</span>
+              </div>
+              <input type="range" class="sound-slider" data-sound="binaural" min="0" max="100" value="20" aria-label="Alpha 脑波音量" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 右侧：任务工作台 + GitHub 风格专注热力图 -->
+      <section class="right-column">
+        <!-- 任务看板卡片 -->
+        <div class="card glass-panel tasks-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">📋 极简任务工作台</h2>
+              <p class="card-subtitle">点击任务可绑定为当前番茄钟目标，完成自动累加 🍅</p>
+            </div>
+            <div class="task-filters">
+              <button class="filter-btn active" data-filter="all">全部</button>
+              <button class="filter-btn" data-filter="active">待办</button>
+              <button class="filter-btn" data-filter="completed">已完成</button>
+            </div>
+          </div>
+
+          <form id="task-form" class="task-form">
+            <input
+              type="text"
+              id="task-input"
+              class="task-input"
+              placeholder="输入今天要攻克的任务（例如：完成 GitHub 项目部署）..."
+              maxlength="80"
+              required
+            />
+            <div class="task-form-controls">
+              <label class="pomo-est-label" title="预计需要的番茄钟数量">
+                <span>预计 🍅</span>
+                <input type="number" id="task-est" min="1" max="12" value="2" class="pomo-est-input" />
+              </label>
+              <select id="task-priority" class="priority-select" aria-label="任务优先级">
+                <option value="high">🔥 高优</option>
+                <option value="medium" selected>⚡ 普通</option>
+                <option value="low">🌱 轻松</option>
+              </select>
+              <button type="submit" class="add-task-btn">+ 添加</button>
+            </div>
+          </form>
+
+          <ul id="task-list" class="task-list"></ul>
+
+          <div class="task-footer">
+            <span id="task-summary">共 0 项待办</span>
+            <button id="btn-clear-completed" class="text-btn">清理已完成任务</button>
+          </div>
+        </div>
+
+        <!-- 仿 GitHub 专注热力图卡片 -->
+        <div class="card glass-panel heatmap-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">🟩 专注度贡献热力图 (Focus Graph)</h2>
+              <p class="card-subtitle">像记录 Git Commit 一样记录你的每一次深度专注</p>
+            </div>
+            <div class="heatmap-actions">
+              <button id="btn-demo-data" class="preset-chip" title="一键生成模拟热力图数据用于展示效果">✨ 切换演示数据</button>
+              <button id="btn-log-session" class="preset-chip" title="手动快速打卡一次 25 分钟专注">+ 快速记录 1🍅</button>
+            </div>
+          </div>
+
+          <div class="heatmap-scroll-container">
+            <div id="heatmap-months" class="heatmap-months"></div>
+            <div class="heatmap-body">
+              <div class="heatmap-weekdays">
+                <span>Mon</span>
+                <span>Wed</span>
+                <span>Fri</span>
+              </div>
+              <div id="heatmap-grid" class="heatmap-grid" role="grid" aria-label="专注度贡献热力图"></div>
+            </div>
+          </div>
+
+          <div class="heatmap-footer">
+            <span id="heatmap-total-text">过去 24 周累计专注 0 分钟</span>
+            <div class="heatmap-legend">
+              <span>少</span>
+              <i class="legend-box level-0"></i>
+              <i class="legend-box level-1"></i>
+              <i class="legend-box level-2"></i>
+              <i class="legend-box level-3"></i>
+              <i class="legend-box level-4"></i>
+              <span>多</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 设置弹窗 -->
+  <div id="settings-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card glass-panel">
+      <div class="modal-header">
+        <h3 id="modal-title">⚙️ 番茄钟时长设置</h3>
+        <button id="btn-close-modal" class="icon-btn" aria-label="关闭">✕</button>
+      </div>
+      <form id="settings-form" class="settings-form">
+        <label class="setting-row">
+          <span>专注时长 (分钟)</span>
+          <input type="number" id="set-focus" min="1" max="120" value="25" required />
+        </label>
+        <label class="setting-row">
+          <span>短休息时长 (分钟)</span>
+          <input type="number" id="set-short" min="1" max="30" value="5" required />
+        </label>
+        <label class="setting-row">
+          <span>长休息时长 (分钟)</span>
+          <input type="number" id="set-long" min="5" max="60" value="15" required />
+        </label>
+        <div class="modal-actions">
+          <button type="submit" class="control-btn primary full-width">保存设置</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 浮动提示 Toast -->
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script src="js/audio.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
